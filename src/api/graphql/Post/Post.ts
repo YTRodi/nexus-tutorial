@@ -1,5 +1,4 @@
 import { extendType, objectType, stringArg, nonNull, intArg } from "nexus";
-import { Post as PostType } from "src/api/db";
 
 export const Post = objectType({
   name: "Post",
@@ -17,13 +16,13 @@ export const PostQuery = extendType({
     t.nonNull.list.field("drafts", {
       type: "Post",
       resolve(_root, _args, ctx) {
-        return ctx.db.posts.filter((post) => !post.published);
+        return ctx.db.post.findMany({ where: { published: false } });
       },
     });
     t.list.field("posts", {
       type: "Post",
       resolve(_root, _args, ctx) {
-        return ctx.db.posts.filter((post) => post.published);
+        return ctx.db.post.findMany({ where: { published: true } });
       },
     });
   },
@@ -39,15 +38,13 @@ export const PostMutation = extendType({
         body: nonNull(stringArg()),
       },
       resolve(_root, args, ctx) {
-        const draft: PostType = {
-          id: ctx.db.posts.length + 1,
-          title: args.title,
-          body: args.body,
-          published: false,
-        };
-
-        ctx.db.posts.push(draft);
-        return draft;
+        return ctx.db.post.create({
+          data: {
+            title: args.title,
+            body: args.body,
+            published: false,
+          },
+        });
       },
     });
     t.field("publish", {
@@ -56,17 +53,12 @@ export const PostMutation = extendType({
         draftId: nonNull(intArg()),
       },
       resolve(_root, args, ctx) {
-        let draftToPublish = ctx.db.posts.find(
-          (post) => post.id === args.draftId
-        );
-
-        if (!draftToPublish) {
-          throw new Error(`Could not find draft with id ${args.draftId}`);
-        }
-
-        draftToPublish.published = true;
-
-        return draftToPublish;
+        return ctx.db.post.update({
+          where: { id: args.draftId },
+          data: {
+            published: true,
+          },
+        });
       },
     });
   },
